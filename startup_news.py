@@ -7,12 +7,11 @@ import subprocess
 import logging
 from datetime import datetime
 
-# 设置日志
+# 设置日志（只输出到文件，不输出到控制台）
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.StreamHandler(),
         logging.FileHandler("startup_news.log", encoding="utf-8"),
     ]
 )
