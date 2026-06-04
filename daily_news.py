@@ -131,7 +131,7 @@ def format_news_message(news_list):
         message += f"{i}. {title}\n"
 
     message += "\n————————————\n"
-    message += "数据来源：知乎热榜"
+    message += "数据来源：知乎热榜\n"
 
     return message
 
@@ -142,8 +142,8 @@ def send_weixin_message(user_id, text):
     try:
         # 使用OpenClaw CLI发送消息
         import subprocess
-        # 转义消息中的引号
-        escaped_text = text.replace('"', '\\"').replace("'", "\\'")
+        # 转义消息中的特殊字符
+        escaped_text = text.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'").replace('`', '\\`')
         cmd = f'openclaw message send --channel openclaw-weixin --target "{user_id}" --message "{escaped_text}"'
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
         if result.returncode == 0:
