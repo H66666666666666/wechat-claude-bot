@@ -1,2 +1,3 @@
 Set objShell = CreateObject("WScript.Shell")
-objShell.Run "pythonw ""D:\first-cc\wechat-claude-bot\startup_news.py""", 0, False
+objShell.CurrentDirectory = "D:\first-cc\wechat-claude-bot"
+objShell.Run "pythonw run_news_silent.py", 0, True

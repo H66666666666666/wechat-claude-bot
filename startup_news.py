@@ -6,6 +6,18 @@ import time
 import subprocess
 import logging
 from datetime import datetime
+import ctypes
+
+# 隐藏控制台窗口
+def hide_console():
+    """隐藏控制台窗口"""
+    try:
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+    except:
+        pass
+
+# 隐藏控制台窗口
+hide_console()
 
 # 设置日志（只输出到文件，不输出到控制台）
 logging.basicConfig(
@@ -49,6 +61,19 @@ def wait_for_openclaw_gateway():
 def send_news():
     """发送热点新闻"""
     logger.info("开始发送热点新闻...")
+
+    # 先发送一条消息获取contextToken
+    try:
+        logger.info("先发送一条消息获取contextToken...")
+        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "正在获取今日热点新闻..."'
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+        if result.returncode == 0:
+            logger.info("contextToken获取成功")
+            time.sleep(2)  # 等待一下让contextToken生效
+        else:
+            logger.warning(f"contextToken获取失败: {result.stderr}")
+    except Exception as e:
+        logger.warning(f"contextToken获取异常: {e}")
 
     # 使用openclaw cron run命令执行daily-news任务
     try:
