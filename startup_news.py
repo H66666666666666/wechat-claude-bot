@@ -136,31 +136,64 @@ def send_news():
 
         today = datetime.now().strftime("%Y年%m月%d日")
 
-        # 逐条发送新闻，每条单独发送
-        for i, news in enumerate(news_list[:10], 1):
-            title = news.get("name", "")
-            if len(title) > 40:
-                title = title[:40] + "..."
+        # 分离知乎和GitHub新闻
+        zhihu_news = [n for n in news_list if n.get("source") == "知乎热榜"][:5]
+        github_news = [n for n in news_list if n.get("source") == "GitHub Trending"][:3]
+        other_news = [n for n in news_list if n.get("source") not in ["知乎热榜", "GitHub Trending"]][:2]
 
-            if i == 1:
-                msg = f"📰 {today} 热点新闻\n{i}. {title}"
-            else:
-                msg = f"{i}. {title}"
+        # 发送标题
+        title_msg = f"📰 {today} 热点新闻速递"
+        logger.info(f"发送标题: {title_msg}")
+        cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{title_msg}"'
+        subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+        time.sleep(2)
 
-            logger.info(f"发送第{i}条: {msg[:50]}...")
-            cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{msg}"'
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+        # 发送知乎热榜
+        if zhihu_news:
+            zhihu_msg = "🔥 知乎热榜"
+            for i, news in enumerate(zhihu_news, 1):
+                title = news.get("name", "")
+                if len(title) > 35:
+                    title = title[:35] + "..."
+                zhihu_msg += f"\n{i}. {title}"
 
-            if result.returncode == 0:
-                logger.info(f"第{i}条新闻已发送")
-            else:
-                logger.error(f"第{i}条新闻发送失败: {result.stderr}")
+            logger.info(f"发送知乎热榜: {len(zhihu_news)}条")
+            cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{zhihu_msg}"'
+            subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+            time.sleep(2)
 
-            time.sleep(2)  # 每条间隔2秒
+        # 发送GitHub Trending
+        if github_news:
+            github_msg = "💻 GitHub Trending"
+            for i, news in enumerate(github_news, 1):
+                title = news.get("name", "")
+                if len(title) > 35:
+                    title = title[:35] + "..."
+                github_msg += f"\n{i}. {title}"
 
-        # 发送数据来源
-        logger.info("发送数据来源...")
-        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "数据来源: 知乎热榜 / GitHub Trending"'
+            logger.info(f"发送GitHub Trending: {len(github_news)}条")
+            cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{github_msg}"'
+            subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+            time.sleep(2)
+
+        # 发送其他新闻
+        if other_news:
+            other_msg = "📌 其他热点"
+            for i, news in enumerate(other_news, 1):
+                title = news.get("name", "")
+                if len(title) > 35:
+                    title = title[:35] + "..."
+                other_msg += f"\n{i}. {title}"
+
+            logger.info(f"发送其他热点: {len(other_news)}条")
+            cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{other_msg}"'
+            subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+            time.sleep(2)
+
+        # 发送结尾
+        end_msg = "————————————\n祝你今天愉快！😊"
+        logger.info("发送结尾...")
+        cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{end_msg}"'
         subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
 
         logger.info("热点新闻发送完成！")
