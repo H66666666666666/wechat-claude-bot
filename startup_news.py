@@ -5,6 +5,7 @@ import sys
 import time
 import subprocess
 import logging
+import json
 from datetime import datetime
 import ctypes
 
@@ -58,22 +59,67 @@ def wait_for_openclaw_gateway():
     return False
 
 
+def check_context_token():
+    """检查contextToken是否有效"""
+    try:
+        token_file = os.path.expanduser("~/.openclaw/openclaw-weixin/accounts/b8f511d5f019-im-bot.context-tokens.json")
+        if not os.path.exists(token_file):
+            logger.warning("contextToken文件不存在")
+            return False
+
+        with open(token_file, 'r', encoding='utf-8') as f:
+            tokens = json.load(f)
+
+        if not tokens:
+            logger.warning("contextToken为空")
+            return False
+
+        logger.info(f"contextToken存在，共{len(tokens)}个")
+        return True
+    except Exception as e:
+        logger.error(f"检查contextToken失败: {e}")
+        return False
+
+
+def wait_for_user_message(timeout_minutes=30):
+    """等待用户发送消息以刷新contextToken"""
+    logger.info(f"等待用户发送消息（最多等待{timeout_minutes}分钟）...")
+
+    start_time = time.time()
+    end_time = start_time + timeout_minutes * 60
+
+    while time.time() < end_time:
+        try:
+            # 检查是否有新消息
+            cmd = 'openclaw cron list'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10, encoding='utf-8')
+
+            # 再次检查contextToken
+            if check_context_token():
+                logger.info("contextToken已刷新")
+                return True
+
+            logger.info("等待用户发送消息...")
+            time.sleep(30)  # 每30秒检查一次
+
+        except Exception as e:
+            logger.error(f"等待消息时出错: {e}")
+            time.sleep(30)
+
+    logger.warning("等待超时，用户未发送消息")
+    return False
+
+
 def send_news():
     """发送热点新闻"""
     logger.info("开始发送热点新闻...")
 
-    # 先发送一条消息获取contextToken
-    try:
-        logger.info("先发送一条消息获取contextToken...")
-        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "📰 正在获取今日热点新闻..."'
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
-        if result.returncode == 0:
-            logger.info("contextToken获取成功")
-            time.sleep(3)  # 等待contextToken生效
-        else:
-            logger.warning(f"contextToken获取失败: {result.stderr}")
-    except Exception as e:
-        logger.warning(f"contextToken获取异常: {e}")
+    # 检查contextToken是否有效
+    if not check_context_token():
+        logger.warning("contextToken无效，等待用户发送消息...")
+        if not wait_for_user_message():
+            logger.error("等待超时，无法发送热点新闻")
+            return False
 
     # 直接获取新闻并分多条短消息发送
     try:
