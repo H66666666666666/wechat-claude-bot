@@ -65,76 +65,60 @@ def send_news():
     # 先发送一条消息获取contextToken
     try:
         logger.info("先发送一条消息获取contextToken...")
-        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "正在获取今日热点新闻..."'
+        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "📰 正在获取今日热点新闻..."'
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
         if result.returncode == 0:
             logger.info("contextToken获取成功")
-            time.sleep(2)  # 等待一下让contextToken生效
+            time.sleep(3)  # 等待contextToken生效
         else:
             logger.warning(f"contextToken获取失败: {result.stderr}")
     except Exception as e:
         logger.warning(f"contextToken获取异常: {e}")
 
-    # 使用openclaw cron run命令执行daily-news任务
+    # 直接获取新闻并分多条短消息发送
     try:
-        # 先获取任务列表
-        result = subprocess.run(
-            "openclaw cron list",
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            encoding='utf-8'
-        )
-
-        if result.returncode == 0:
-            # 查找daily-news任务
-            lines = result.stdout.strip().split('\n')
-            for line in lines:
-                if 'daily-news' in line and 'bf01ab12' in line:
-                    # 提取任务ID
-                    parts = line.split()
-                    if len(parts) > 0:
-                        task_id = parts[0]
-                        logger.info(f"找到daily-news任务: {task_id}")
-
-                        # 执行任务
-                        run_result = subprocess.run(
-                            f"openclaw cron run {task_id}",
-                            shell=True,
-                            capture_output=True,
-                            text=True,
-                            timeout=60,
-                            encoding='utf-8'
-                        )
-
-                        if run_result.returncode == 0:
-                            logger.info("热点新闻任务已执行")
-                            return True
-                        else:
-                            logger.error(f"执行任务失败: {run_result.stderr}")
-                            return False
-
-        # 如果上面的方法失败，直接使用openclaw message send发送消息
-        logger.info("使用备用方案发送消息...")
-
-        # 获取热点新闻
+        logger.info("获取热点新闻...")
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from daily_news import get_hot_news, format_news_message
+        from daily_news import get_hot_news
 
         news_list = get_hot_news()
-        message = format_news_message(news_list)
-
-        # 发送消息
-        cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{message}"'
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
-
-        if result.returncode == 0:
-            logger.info("热点新闻已发送")
-            return True
-        else:
-            logger.error(f"发送消息失败: {result.stderr}")
+        if not news_list:
+            logger.error("获取热点新闻失败")
             return False
+
+        logger.info(f"获取到 {len(news_list)} 条热点新闻")
+
+        today = datetime.now().strftime("%Y年%m月%d日")
+
+        # 逐条发送新闻，每条单独发送
+        for i, news in enumerate(news_list[:10], 1):
+            title = news.get("name", "")
+            if len(title) > 40:
+                title = title[:40] + "..."
+
+            if i == 1:
+                msg = f"📰 {today} 热点新闻\n{i}. {title}"
+            else:
+                msg = f"{i}. {title}"
+
+            logger.info(f"发送第{i}条: {msg[:50]}...")
+            cmd = f'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "{msg}"'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+
+            if result.returncode == 0:
+                logger.info(f"第{i}条新闻已发送")
+            else:
+                logger.error(f"第{i}条新闻发送失败: {result.stderr}")
+
+            time.sleep(2)  # 每条间隔2秒
+
+        # 发送数据来源
+        logger.info("发送数据来源...")
+        cmd = 'openclaw message send --channel openclaw-weixin --target "o9cq80zOJNAxg1j5JcyFfH4KEzqk@im.wechat" --message "数据来源: 知乎热榜 / GitHub Trending"'
+        subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+
+        logger.info("热点新闻发送完成！")
+        return True
 
     except Exception as e:
         logger.error(f"发送热点新闻失败: {e}")
